@@ -25,3 +25,6 @@ main.zip
 
 # DS Store
 .DS_Store
+
+# Credential
+firebase-credential.json

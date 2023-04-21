@@ -3,43 +3,51 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	firebase "firebase.google.com/go"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/api/option"
 )
 
 func HandleRequest(ctx context.Context, event events.APIGatewayCustomAuthorizerRequestTypeRequest) (events.APIGatewayV2CustomAuthorizerSimpleResponse, error) {
+
+	// Initilize the Firebase App
+	opt := option.WithCredentialsFile("firebase-credential.json")
+	app, err := firebase.NewApp(context.Background(), nil, opt)
+	if err != nil {
+		logrus.Fatalln("error initializing app: %v\n", err)
+	}
 
 	authResponse := events.APIGatewayV2CustomAuthorizerSimpleResponse{
 		IsAuthorized: false,
 	}
 
-	fmt.Println(event.Headers["br authorization"])
+	authClient, err := app.Auth(ctx)
+
+	if err != nil {
+		logrus.Fatalln("error initializing app: %v\n", err)
+	}
 
 	token := event.Headers["authorization"]
 
-	fmt.Println(token)
-
 	splittedToken := strings.Split(token, " ")
 
-	fmt.Println("")
-
-	switch strings.ToLower(splittedToken[1]) {
-	case "allow":
-		authResponse.IsAuthorized = true
-		authResponse.Context = map[string]interface{}{
-			"userId": "Test",
-		}
-		return authResponse, nil
-	case "deny":
-		return authResponse, errors.New("Unauthorized")
-	case "unauthorized":
-		return authResponse, errors.New("Unauthorized")
-	default:
+	if len(splittedToken) != 2 {
+		logrus.Info("Auth Key not correctly structed.")
 		return authResponse, errors.New("Unauthorized")
 	}
+
+	_, err = authClient.VerifyIDTokenAndCheckRevoked(ctx, splittedToken[1])
+	if err != nil {
+		logrus.Info("Vlidation Failed")
+		return authResponse, errors.New("Unauthorized")
+	}
+
+	authResponse.IsAuthorized = true
+	return authResponse, nil
 }
 
 func main() {
