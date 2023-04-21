@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+# Binary File
+main
+main.zip
+
+# DS Store
+.DS_Store
